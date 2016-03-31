@@ -93,15 +93,13 @@ void autoparam(double varsperclause, int vars, double *weight, double *runtime, 
 }
 
 int main(int argc, char **argv){
-  int i,parity, trials, try, err;
+  int i, parity, trials, try, err;
   double weight, runtime, starttime, max_r;
   double *mean;
   double a, b, t, dt;
   Population pop;
-  int *mins;            //the minima from different trials
-  Bitstring *solutions; //the corresponding bitstrings
-  int best_try;         //the trial in which the best minimum was found
-  int initfail;         //a flag for memory allocation failure
+  double min = -1.0;    //the best minimum from different trials
+  Bitstring solution;   //the corresponding bitstrings
   clock_t beg, end;     //for code timing
   double time_spent;    //for code timing
   
@@ -110,23 +108,15 @@ int main(int argc, char **argv){
   if ( (err = parseCommand(argc, argv, &pop, &weight, &runtime, &trials, &starttime)) ){
     return err;
   }
-
+  
   if ( (mean = (double *) malloc(nspecies*sizeof(double))) == NULL ) {
     fprintf(stderr, "Could not initialize means.\n");
     return MEMORY_ERROR;
   }
   
-  mins = (int *)malloc(trials*sizeof(int));
-  solutions = (Bitstring *)malloc(trials*sizeof(Bitstring));
-  if(mins == NULL || solutions == NULL) {
-    fprintf(stderr, "Could not initialize trials.\n");
-    return MEMORY_ERROR;
-  }
-  initfail = 0;
-  for(try = 0; try < trials && !initfail; try++) initfail = initBitstring(&solutions[try]);
-  if(initfail) {
+  if ( (err = initBitstring(&solution)) ){
     fprintf(stderr, "Could not initialize answerspace.\n");
-    return MEMORY_ERROR;
+    return err;
   }
   
   for(try = 0; try < trials; try++) {
@@ -140,7 +130,7 @@ int main(int argc, char **argv){
       
       max_r = 0.0;
       for (i=0; i<nspecies; ++i){
-        mean[i] = pop->avg_v[i] + (pop->max_v[i] - pop->min_v[i])*(popsize - pop->psize[i])/((pop->max_v[i] + pop->min_v[i])*popsize);
+        mean[i] = pop->avg_v[i] + 2*(pop->max_v[i] - pop->min_v[i])*(popsize - pop->psize[i])/((pop->max_v[i] + pop->min_v[i])*popsize);
         if ( (pop->max_v[i] - mean[i]) > (mean[i] - pop->min_v[i]) ) {
           if ( (pop->max_v[i] - mean[i]) > max_r )
             max_r = pop->max_v[i] - mean[i];
@@ -160,25 +150,17 @@ int main(int argc, char **argv){
       t += dt;
       parity ^= 1;
     }
-//    printf("o %i\n",(int)pop->min_v);
-//    printf("v ");
-//    optindex = printOpt(pop);
-    
     printBits(stdout, pop->winner);
     
-
-    
-    mins[try] = (int)pop->winner->potential;
-//    copyBitstring(solutions[try], pop->walker[optindex]);
-    copyBitstring(solutions[try], pop->winner);
+    if ((min<0) || (pop->winner->potential < min)) {
+      min = pop->winner->potential;
+      copyBitstring(solution, pop->winner);
+    }
   }
-  best_try = 0;
-  for(try = 1; try < trials; try++) if(mins[try] < mins[best_try]) best_try = try;
+  
   printf("c Final answer: \n");
-  printBits(stdout, solutions[best_try]);
-  for(try = 0; try < trials; try++) freeBitstring(&solutions[try]);
-  free(solutions);
-  free(mins);
+  printBits(stdout, solution);
+  freeBitstring(&solution);
   end = clock();
   time_spent = (double)(end - beg)/CLOCKS_PER_SEC;
   printf("c Walltime: %f seconds\n", time_spent);
@@ -310,15 +292,15 @@ int parseCommand(int argc, char **argv, Population *Pptr, double *weight, double
     nspecies = 1;
   }
   
-  arraysize = 2*nspecies*popsize;
+  arraysize = 20*nspecies*popsize;
   
   if ( initPopulation(&pop, sat) ) {
     fprintf(stderr,"Could not initialize potential.\n");
     return MEMORY_ERROR;
   }
 
-  //seed = time(0);
-  seed = 0; // for testing
+  seed = time(0);
+//  seed = 0; // for testing
   srand48(seed);
   printf("c ------------------------------------------------------\n");
   printf("c Substochastic Monte Carlo, version 1.0                \n");
