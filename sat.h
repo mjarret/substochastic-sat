@@ -1,7 +1,7 @@
 /** @file  sat.h
  * @brief Header file for a weighted SAT potential.
  *
- * Created by Brad Lackey on 3/14/16. Last modified 3/30/16.
+ * Created by Brad Lackey on 3/14/16. Last modified 3/31 /16.
  */
 
 #ifndef sat_h
@@ -30,7 +30,7 @@ struct sat_st {
   int **clause;           ///< Array of clauses.
 };
 
-// I/O routines, since potentials are expected to be loaded from files.
+// Constuctors and I/O routines. Potentials are expected to be loaded from files.
 int initSAT(SAT *sat_ptr, int nvrs, int ncls);
 int loadDIMACSFile(FILE *fp, SAT *sat_ptr);   ///< Create a SAT instance from a file.
 void freeSAT(SAT *sat_ptr);                   ///< Deallocation routine for a SAT instance.
@@ -51,7 +51,8 @@ struct diff_sat_st {
   SAT *der;
 };
 
-int createSATDerivative(DSAT *dsat_ptr, SAT sat);
-void freeSATDerivative(DSAT *dsat_ptr);
+// Constuctors and I/O routines.
+int createSATDerivative(DSAT *dsat_ptr, SAT sat);  ///< Creates and computes the derivative of the passed SAT instance.
+void freeSATDerivative(DSAT *dsat_ptr);            ///< Deallocation routine for a SAT derivative.
 
 #endif /* sat_h */

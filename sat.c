@@ -1,13 +1,21 @@
 /** @file  sat.c
- * @brief Source file for a SAT potential type in the Substochastic library.
+ * @brief Source file for a SAT potential type.
  *
- * Created by Brad Lackey on 3/14/16. Last modified 3/30/16.
+ * Created by Brad Lackey on 3/14/16. Last modified 3/31/16.
  */
 
 #include <string.h>
 #include "sat.h"
 
-
+/**
+ * A SAT instance is initialized.
+ * Memory is allocated based on the number of clauses passed by \a ncls.
+ * The number of variables is stored in the structure but not used here.
+ * @param sat_ptr points to the SAT structure.
+ * @param nvars is the number of variables in the instance.
+ * @param ncls is the number of clauses in the instance.
+ * @return Zero if successful, error code(s) if failed.
+ */
 int initSAT(SAT *sat_ptr, int nvars, int ncls){
   SAT sat;
   
@@ -103,37 +111,43 @@ int loadDIMACSFile(FILE *fp, SAT *sat_ptr){
   int nvars,ncls;
   
   
+  // First skip down until the parameter line is found.
   while ( (linelen = getline(&line, &linecap, fp)) > 0 ){
     if (line[0] != 'p') continue;
+    
+    // Read in the parameter line.
     if ( (type = parseHeader(line,&nvars,&ncls)) < 0 ) {
       *sat_ptr = NULL;
       return IO_ERROR;
     }
     
-//    if ( type == 0 ){
-//      printf("Loading SAT file...\n");
-//    }
-//    if ( type == 1 ){
-//      printf("Loading weighted SAT file...\n");
-//    }
-
-    if ( (buf = (int *) malloc(nvars*sizeof(int))) == NULL ) {
+    // Now create the SAT instance with the given number of variables and clauses.
+    if ( initSAT(&sat, nvars, ncls) ) {
       *sat_ptr = NULL;
       return MEMORY_ERROR;
     }
-    if ( initSAT(&sat, nvars, ncls) ) {
+
+    // Create a large enough buffer to read in clause lines for the instance.
+    if ( (buf = (int *) malloc(nvars*sizeof(int))) == NULL ) {
       *sat_ptr = NULL;
       return MEMORY_ERROR;
     }
     break;
   }
   
+  // Now start reading in clause lines.
   for (i=0; i<sat->num_clauses; ++i) {
     if ( (linelen = getline(&line, &linecap, fp)) <= 0 ) {
       freeSAT(&sat);
       free(buf);
       *sat_ptr = NULL;
       return IO_ERROR;
+    }
+    
+    // Skip over a comment line. (Why have these in the body of the file anyway?)
+    if (line[0] == 'c') {
+      --i;
+      continue;
     }
     
     if ( type == 1 ) {                // We need to read off the variable weight first.
@@ -143,17 +157,21 @@ int loadDIMACSFile(FILE *fp, SAT *sat_ptr){
       off = 0;
     }
     
+    // Now read in the terms.
     for (j=0; j<nvars; ++j) {
       sscanf(line+off,"%d%n",buf+j,&k);
       off += k;
       if (buf[j] == 0) break;
     }
     
+    // Some files were not preprocessed and so need tautology removal.
     j = dedupe(buf,j);
-    if (j == 0) {
+    
+    
+    if (j == 0) {                 // Then this clause is tautology and can be removed.
       --i;
       --(sat->num_clauses);
-    } else {
+    } else {                      // Otherwise copy the buffer into the instance.
       sat->clause_weight[i] = w;
       sat->clause_length[i] = j;
       sat->clause[i] = (int *) malloc(j*sizeof(int));
@@ -163,6 +181,7 @@ int loadDIMACSFile(FILE *fp, SAT *sat_ptr){
     }
   }
   
+  // Point to our newly minted instance and free the buffer memory.
   *sat_ptr = sat;
   free(buf);
   return 0;
@@ -191,7 +210,7 @@ void freeSAT(SAT *sat_ptr){
   }
 }
 
-// Don't look at this.
+// Don't look at this. It was used to debug.
 void printSAT(FILE *fp, SAT sat){
   int i,j;
   
@@ -204,6 +223,14 @@ void printSAT(FILE *fp, SAT sat){
   }
 }
 
+
+/**
+ * We need to return the potential as the sum of the weights of the failed clauses.
+ * This is in the innermost loop of the algorithm so needs to be heavily optimized.
+ * @param bst is the bitstring on which we compute the potential.
+ * @param sat is the SAT instance that holds the potential.
+ * @return The potential value.
+ */
 double getPotential(Bitstring bts, SAT sat){
   int i,j;
   int k,l;
@@ -228,6 +255,13 @@ double getPotential(Bitstring bts, SAT sat){
 }
 
 
+/**
+ * A SAT derivative instance is initialized, and computed from the passed SAT instance.
+ * The underlying SAT instance may or may not be weighted, but the derivative always is weighted.
+ * @param dsat_ptr points to the SAT derivative structure to be created.
+ * @param sat is the SAT instance to be differentiated.
+ * @return Zero if successful, error code(s) if failed.
+ */
 int createSATDerivative(DSAT *dsat_ptr, SAT sat){
   int i,j,k,l;
   int *clen;
@@ -292,6 +326,10 @@ int createSATDerivative(DSAT *dsat_ptr, SAT sat){
   return 0;
 }
 
+/**
+ * @param dsat_ptr points to the SAT derivative instance to be destroyed.
+ * @return None.
+ */
 void freeSATDerivative(DSAT *dsat_ptr){
   int i;
   

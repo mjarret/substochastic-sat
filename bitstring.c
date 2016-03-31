@@ -1,7 +1,7 @@
 /** @file  bitstring.c
  * @brief Source file for a weighted bitstring.
  *
- * Created by Brad Lackey on 3/14/16. Last modified 3/30/16.
+ * Created by Brad Lackey on 3/14/16. Last modified 3/31/16.
  */
 
 #include <stdio.h>
@@ -22,6 +22,28 @@ int setBitLength(int num_bits){
   return 0;
 }
 
+// Added by SPJ 3/17/16
+/**
+ * This prints the bitstring in the format demanded by the MaxSAT competition:
+ * namely bits are numbered 1,2,3,4,... and we output -x if bit x is 0 and output x if bit x is 1.
+ * @param fp is the file stream to put the output (typically stdout).
+ * @param bst is the instance to be printed.
+ * @return None.
+ */
+void printBits(FILE *fp, Bitstring bst) {
+  int i;
+  int val;
+  
+  fprintf(fp,"o %i\n", (int) bst->potential);
+  fprintf(fp,"v ");
+  
+  for(i = 0; i < nbts; i++) {
+    val = bst->node[i/BITS_PER_WORD] >> (i % BITS_PER_WORD);
+    if(val%2) fprintf(fp,"%i ", i+1);
+    else fprintf(fp,"%i ", -(i+1));
+  }
+  printf("\n");
+}
 
 /**
  * A bitstring is initialized and an array of the appropriate length is created.
@@ -142,26 +164,4 @@ int randomBitFlip(Bitstring bst_out, Bitstring bst_in){
   return (1-2*((int) j))*(i+1);
 }
 
-// Added by SPJ 3/17/16
-/**
- * This prints the bitstring in the format demanded by the MaxSAT competition:
- * namely bits are numbered 1,2,3,4,... and we output -x if bit x is 0 and output x if bit x is 1.
- * @param fp is the file stream to put the output (typically stdout).
- * @param bst is the instance to be printed.
- * @return None.
- */
-void printBits(FILE *fp, Bitstring bst) {
-  int i;
-  int val;
-  
-  fprintf(fp,"o %i\n", (int) bst->potential);
-  fprintf(fp,"v ");
-
-  for(i = 0; i < nbts; i++) {
-    val = bst->node[i/BITS_PER_WORD] >> (i % BITS_PER_WORD);
-    if(val%2) fprintf(fp,"%i ", i+1);
-    else fprintf(fp,"%i ", -(i+1));
-  }
-  printf("\n");
-}
 
