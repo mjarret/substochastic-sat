@@ -19,6 +19,7 @@
 struct bitstring_st {
   word_t *node;                ///< The array that holds the bits.
   double potential;            ///< The weight associated to this bitstring.
+  int species;                 ///< The subpopulation to which this walker belongs.
 };
 
 int nbts;      ///< The length of bitstrings (in number of bits).

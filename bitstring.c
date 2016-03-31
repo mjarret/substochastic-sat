@@ -43,8 +43,9 @@ int initBitstring(Bitstring *bst_ptr){
     return MEMORY_ERROR;
   }
   
-  // Initialize the potential to be negative, and pass the created bitstring to output.
+  // Initialize the potential to be negative, the species to be zero, and pass the created bitstring to output.
   bst->potential = -1.0;
+  bst->species = 0;
   (*bst_ptr) = bst;
   
   return 0;
@@ -102,12 +103,12 @@ int copyBitstring(Bitstring bst_out, Bitstring bst_in){
   int i;
   
   // Copy each element of the array.
-  for (i=0; i<blen; ++i) {
+  for (i=0; i<blen; ++i)
     bst_out->node[i] = bst_in->node[i];
-  }
   
-  // Copy the weight.
+  // Copy the weight and species tag.
   bst_out->potential = bst_in->potential;
+  bst_out->species = bst_in->species;
   
   return 0;
 }

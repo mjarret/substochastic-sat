@@ -23,6 +23,7 @@ struct sat_st;
 typedef struct sat_st * SAT;
 
 struct sat_st {
+  int num_vars;           ///< Number of variables in the instance.
   int num_clauses;        ///< Number of problems in the instance.
   int *clause_weight;     ///< Array holding the clause weights.
   int *clause_length;     ///< Array holding the length of each clause.
@@ -30,10 +31,10 @@ struct sat_st {
 };
 
 // I/O routines, since potentials are expected to be loaded from files.
-int initSAT(SAT *sat_ptr, int ncls);
+int initSAT(SAT *sat_ptr, int nvrs, int ncls);
 int loadDIMACSFile(FILE *fp, SAT *sat_ptr);   ///< Create a SAT instance from a file.
 void freeSAT(SAT *sat_ptr);                   ///< Deallocation routine for a SAT instance.
-void printSAT(FILE *fp, int nvars, SAT sat);  ///< Print in DIMACS format.
+void printSAT(FILE *fp, SAT sat);             ///< Print in DIMACS format.
 
 double getPotential(Bitstring bts, SAT sat);  ///< Evaluates the SAT instance on the passed bitstring.
 
@@ -50,7 +51,7 @@ struct diff_sat_st {
   SAT *der;
 };
 
-int createSATDerivative(DSAT *dsat_ptr, int nvars, SAT sat);
+int createSATDerivative(DSAT *dsat_ptr, SAT sat);
 void freeSATDerivative(DSAT *dsat_ptr);
 
 #endif /* sat_h */

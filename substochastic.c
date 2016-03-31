@@ -20,9 +20,14 @@
 
 extern int nbts;
 extern int arraysize;
+extern int nspecies;
+
+static int popsize;
 
 
-void update(double a, double b, double mean, Population P, int parity);
+void update(double a, double b, double *mean, Population P, int parity);
+int parseCommand(int argc, char **argv, Population *Pptr, double *weight, double *runtime, int *trials, double *starttime);
+
 
 /*Added by SPJ 3/17
  *Print optimal bitstring out of the current population. If there are multiple
@@ -84,73 +89,29 @@ void autoparam(double varsperclause, int vars, double *weight, double *runtime, 
 }
 
 int main(int argc, char **argv){
-  int parity, trials, try, popsize;
-  double weight, runtime, mean, mark, starttime;
+  int i,parity, trials, try, err;
+  double weight, runtime, starttime, max_r;
+  double *mean;
   double a, b, t, dt;
-  FILE *fp;
   Population pop;
-//  int optindex;         //index of optimum found
   int *mins;            //the minima from different trials
   Bitstring *solutions; //the corresponding bitstrings
   int best_try;         //the trial in which the best minimum was found
   int initfail;         //a flag for memory allocation failure
   clock_t beg, end;     //for code timing
   double time_spent;    //for code timing
-  double varsperclause; //average number of variables per clause
-  long seed;            //the seed for the RNG
+  
   beg = clock();
-<<<<<<< HEAD
-  if (argc != 6 && argc != 2) {
-    printf("Usage: %s instance.cnf [<step weight> <runtime> <population size> <trials>]\n",argv[0]);
-=======
-  if (argc != 7 && argc != 2) {
-    printf("Usage: %s instance.cnf [<step weight> <runtime> <population size> <trials> <start time>]\n",argv[0]);
->>>>>>> origin/master
-    return 2;
-  }
-  if ( (fp = fopen(argv[1], "r")) == NULL ){
-    fprintf(stderr,"Could not open file %s\n",argv[1]);
-    return IO_ERROR;
-  }
-  //If we want to autoparam popsize we will have to separate loading the DIMACS
-  //file and allocating the population memory into separate steps. Right now they
-  //are done together in initPopulation.
 
-  //starttime parameter added by Michael 3/30/16
-  if(argc == 7) {
-    weight = (double) atoi(argv[2]);
-    sscanf(argv[3], "%lf", &runtime); //allows scientific notation unlike atoi
-    popsize = atoi(argv[4]);
-    trials = atoi(argv[5]);
-    starttime = atoi(argv[6]);
+  if ( (err = parseCommand(argc, argv, &pop, &weight, &runtime, &trials, &starttime)) ){
+    return err;
   }
-  else popsize = 128;
-  arraysize = 2*popsize;
-  if ( initPopulation(&pop, fp) ) {
-    fprintf(stderr,"Could not initialize potential.\n");
+
+  if ( (mean = (double *) malloc(nspecies*sizeof(double))) == NULL ) {
+    fprintf(stderr, "Could not initialize means.\n");
     return MEMORY_ERROR;
   }
-  fclose(fp);
-  varsperclause = avgLength(pop->sat);
-  seed = time(0);
-  //seed = 0 // for testing
-  srand48(seed);
-  if(argc == 2) autoparam(varsperclause, nbts, &weight, &runtime, &trials, &starttime);
-  printf("c ------------------------------------------------------\n");
-  printf("c Substochastic Monte Carlo, version 1.0                \n");
-  printf("c Brad Lackey, Stephen Jordan, and Michael Jarret, 2016.\n");
-  printf("c ------------------------------------------------------\n");
-  printf("c Input: %s\n", argv[1]); 
-  printf("c Bits: %d\n", nbts);
-  printf("c Clauses (after tautology removal): %d\n", pop->sat->num_clauses);
-  printf("c Step weight: %f\n", weight);
-  printf("c Population size: %d\n", popsize);
-  printf("c Runtime: %e\n", runtime);
-  printf("c Start time: %e\n", starttime);
-  printf("c Trials: %i\n", trials);
-  printf("c Variables per clause: %f\n", varsperclause);
-  printf("c Seed: %li\n", seed);
-  mark = runtime/100.0;
+  
   mins = (int *)malloc(trials*sizeof(int));
   solutions = (Bitstring *)malloc(trials*sizeof(Bitstring));
   if(mins == NULL || solutions == NULL) {
@@ -163,27 +124,37 @@ int main(int argc, char **argv){
     fprintf(stderr, "Could not initialize answerspace.\n");
     return MEMORY_ERROR;
   }
+  
   for(try = 0; try < trials; try++) {
     t = starttime;
     parity = 0;
-    randomPopulation(pop,arraysize/2);
+    randomPopulation(pop,popsize);
+    
     while (t < runtime) {
       a = weight*(1.0 - t/runtime)/100.0; // Turned weight into percent -- Michael 3/30/16
       b = (t/runtime);
-      mean = pop->avg_v + ((pop->max_v - pop->min_v)/arraysize)*((arraysize/2) - pop->psize);
-      if ( (pop->max_v - mean) > (mean - pop->min_v) )
-        dt = 0.9/(a + b*(pop->max_v - mean));
-      else
-        dt = 0.9/(a + b*(mean - pop->min_v));
+      
+      max_r = 0.0;
+      for (i=0; i<nspecies; ++i){
+        mean[i] = pop->avg_v[i] + (pop->max_v[i] - pop->min_v[i])*(popsize - pop->psize[i])/((pop->max_v[i] + pop->min_v[i])*popsize);
+        if ( (pop->max_v[i] - mean[i]) > (mean[i] - pop->min_v[i]) ) {
+          if ( (pop->max_v[i] - mean[i]) > max_r )
+            max_r = pop->max_v[i] - mean[i];
+        } else {
+          if ( (mean[i] - pop->min_v[i]) > max_r )
+            max_r = mean[i] - pop->min_v[i];
+        }
+      }
+      
+      dt = 0.9/(a + b*max_r);
+//      printf("%f %f %d %d (%f %f %f)\n",t,dt,pop->size,pop->psize[0],pop->max_v[0],mean[0],pop->min_v[0]);
       if (t + dt > runtime)
-        dt = runtime - t;      
-      update(a*dt, b*dt, mean, pop, parity);      
+        dt = runtime - t;
+      
+      update(a*dt, b*dt, mean, pop, parity);
+      
       t += dt;
       parity ^= 1;
-      if ( (trials==0) && (t >= mark) ){
-        fprintf(stderr,"time=%f: size=%3d    min=%f   max=%f\n", t, pop->psize, pop->min_v, pop->max_v);
-        mark += runtime/100.0;
-      }
     }
 //    printf("o %i\n",(int)pop->min_v);
 //    printf("v ");
@@ -193,15 +164,13 @@ int main(int argc, char **argv){
     
 
     
-    mins[try] = (int)pop->min_v;
+    mins[try] = (int)pop->winner->potential;
 //    copyBitstring(solutions[try], pop->walker[optindex]);
     copyBitstring(solutions[try], pop->winner);
   }
   best_try = 0;
   for(try = 1; try < trials; try++) if(mins[try] < mins[best_try]) best_try = try;
   printf("c Final answer: \n");
-//  printf("o %i\n", mins[best_try]);
-//  printf("v ");
   printBits(stdout, solutions[best_try]);
   for(try = 0; try < trials; try++) freeBitstring(&solutions[try]);
   free(solutions);
@@ -213,69 +182,150 @@ int main(int argc, char **argv){
 }
 
 
-
-
-
-
-void update(double a, double b, double mean, Population P, int parity){
-  int i,j,k;
+void update(double a, double b, double *mean, Population P, int parity){
+  int i,j,k,l;
   double p,e;
-  double min = P->sat->num_clauses;
-  double avg = 0.0;
-  double max = -(P->sat->num_clauses);
   int old = parity*arraysize;
   int new = (1-parity)*arraysize;
   
-  for (i=j=0; i<P->psize; ++i) {   // Loop over each walker (i) and set target position (j) to zero.
+  for (i=0; i<nspecies; ++i) {
+    P->psize[i] = 0;
+    P->avg_v[i] = 0.0;
+    P->max_v[i] = -(P->sat->num_clauses);
+    P->min_v[i] = P->sat->num_clauses;
+  }
+  
+  
+  for (i=j=0; i<P->size; ++i) {   // Loop over each walker (i) and set target position (j) to zero.
     p = drand48();
+    l = P->walker[old+i]->species; // This is the species where the walker will go!
+    
     
     // First potential event: walker steps.
     if ( p < a ) {
       k = randomBitFlip(P->walker[new+j], P->walker[old+i]);
       e = P->walker[old+i]->potential + ((k>0)-(k<0))*getPotential(P->walker[new+j],P->ds->der[abs(k)-1]);
       P->walker[new+j]->potential = e;
-      if ( e < min ){
-        min = e;
+      if ( e < P->min_v[l] ){
+        P->min_v[l] = e;
         if ( e < P->winner->potential )
           copyBitstring(P->winner, P->walker[new+j]);
       }
-      if ( e > max ) max = e;
-      avg += e;
+      if ( e > P->max_v[l] ) P->max_v[l] = e;
+      P->avg_v[l] += e;
+      ++(P->psize[l]);
       ++j;
       continue;
     }
     p -= a;
    
+    e = mean[P->walker[old+i]->species];
     // Second potential event: walker spawns/dies.
-    // Removed dead line, implied by subsequent comparisons -- Michael 3/30/16
-//    if ( mean > P->walker[old+i]->potential ) { // Case of spawning.
-      if ( p < b*(mean - P->walker[old+i]->potential) ) {
-        copyBitstring(P->walker[new+j], P->walker[old+i]);
-        copyBitstring(P->walker[new+j+1], P->walker[old+i]);
-        e = P->walker[old+i]->potential;
-        if ( e < min ) min = e;
-        if ( e > max ) max = e;
-        avg += 2*e;
-        j += 2;
-        continue;
+    if ( p < b*(e - P->walker[old+i]->potential) ) {
+      copyBitstring(P->walker[new+j], P->walker[old+i]);
+      copyBitstring(P->walker[new+j+1], P->walker[old+i]);
+      e = P->walker[old+i]->potential;
+      if ( e < P->min_v[l] ) P->min_v[l] = e;
+      if ( e > P->max_v[l] ) P->max_v[l] = e;
+      P->avg_v[l] += 2*e;
+      P->psize[l] += 2;
+      j += 2;
+      continue;
       }
-//    } else {
-      if ( p < b*(P->walker[old+i]->potential - mean) ) { // Case of dying.
-        continue;
-      }
-//    }
+    
+    if ( p < b*(P->walker[old+i]->potential - e) ) { // Case of dying.
+      continue;
+    }
     
     // Third potential event: walker stays.
     copyBitstring(P->walker[new+j], P->walker[old+i]);
     e = P->walker[old+i]->potential;
-    if ( e < min ) min = e;
-    if ( e > max ) max = e;
-    avg += e;
+    if ( e < P->min_v[l] ) P->min_v[l] = e;
+    if ( e > P->max_v[l] ) P->max_v[l] = e;
+    P->avg_v[l] += e;
+    ++(P->psize[l]);
     ++j;
   }
   
-  P->psize = j;
-  P->avg_v = avg/j;
-  P->min_v = min;
-  P->max_v = max;
+  P->size = j;
+  
+  for (i=0; i<nspecies; ++i) P->avg_v[i] /= P->psize[i];
 }
+
+
+
+int parseCommand(int argc, char **argv, Population *Pptr, double *weight, double *runtime, int *trials, double *starttime){
+  SAT sat;
+  int seed;
+  double varsperclause; //average number of variables per clause
+  FILE *fp;
+  Population pop;
+  
+  if (argc != 8 && argc != 2) {
+    fprintf(stderr, "Usage: %s instance.cnf [<step weight> <runtime> <species size> <number species> <trials> <start time>]\n",argv[0]);
+    return 2;
+  }
+  
+  if ( (fp = fopen(argv[1], "r")) == NULL ){
+    fprintf(stderr,"Could not open file %s\n",argv[1]);
+    return IO_ERROR;
+  }
+
+  if ( loadDIMACSFile(fp,&sat) ){
+    fprintf(stderr,"Error reading in DIMACS SAT file %s\n",argv[1]);
+    return IO_ERROR;
+  }
+  
+  fclose(fp);
+  
+  setBitLength(sat->num_vars);
+  varsperclause = avgLength(sat);
+
+  if ( argc == 2 )
+    autoparam(varsperclause, nbts, weight, runtime, trials, starttime);
+  
+  if( argc == 8 ) {
+    *weight = (double) atoi(argv[2]);
+    sscanf(argv[3], "%lf", runtime); //allows scientific notation unlike atoi
+    popsize = atoi(argv[4]);
+    nspecies = atoi(argv[5]);
+    *trials = atoi(argv[6]);
+    *starttime = atoi(argv[7]);
+  } else {
+    popsize = 128;
+    nspecies = 1;
+  }
+  
+  arraysize = 2*nspecies*popsize;
+  
+  if ( initPopulation(&pop, sat) ) {
+    fprintf(stderr,"Could not initialize potential.\n");
+    return MEMORY_ERROR;
+  }
+
+  seed = time(0);
+  //seed = 0 // for testing
+  srand48(seed);
+  printf("c ------------------------------------------------------\n");
+  printf("c Substochastic Monte Carlo, version 1.0                \n");
+  printf("c Brad Lackey, Stephen Jordan, and Michael Jarret, 2016.\n");
+  printf("c ------------------------------------------------------\n");
+  printf("c Input: %s\n", argv[1]);
+  printf("c Bits: %d\n", nbts);
+  printf("c Clauses (after tautology removal): %d\n", pop->sat->num_clauses);
+  printf("c Step weight: %f\n", *weight);
+  printf("c Population size: %d (=%dx%d)\n", nspecies*popsize, popsize, nspecies);
+  printf("c Runtime: %e\n", *runtime);
+  printf("c Start time: %e\n", *starttime);
+  printf("c Trials: %i\n", *trials);
+  printf("c Variables per clause: %f\n", varsperclause);
+  printf("c Seed: %i\n", seed);
+
+  *Pptr = pop;
+  
+  return 0;
+}
+
+
+
+

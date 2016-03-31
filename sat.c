@@ -8,7 +8,7 @@
 #include "sat.h"
 
 
-int initSAT(SAT *sat_ptr, int ncls){
+int initSAT(SAT *sat_ptr, int nvars, int ncls){
   SAT sat;
   
   if ( (sat = (SAT) malloc(sizeof(struct sat_st))) == NULL ) {
@@ -16,6 +16,7 @@ int initSAT(SAT *sat_ptr, int ncls){
     return MEMORY_ERROR;
   }
   
+  sat->num_vars = nvars;
   sat->num_clauses = ncls;
   if ( (sat->clause_weight = (int *) calloc(ncls,sizeof(int))) == NULL ) {
     freeSAT(&sat);
@@ -90,7 +91,7 @@ int parseHeader(char *line, int *nv, int *nc){
  * This ((un)weighted/partial) SAT instance must be given in DIMACS-CNF format.
  * @param fp points to the file to be read.
  * @param sat_ptr points to the SAT instance to be created.
- * @return Number of variables if successful, zero if failed.
+ * @return Zero if successful, error code(s) if failed.
  */
 int loadDIMACSFile(FILE *fp, SAT *sat_ptr){
   int i,j,k,w,off,type;
@@ -106,7 +107,7 @@ int loadDIMACSFile(FILE *fp, SAT *sat_ptr){
     if (line[0] != 'p') continue;
     if ( (type = parseHeader(line,&nvars,&ncls)) < 0 ) {
       *sat_ptr = NULL;
-      return 0;
+      return IO_ERROR;
     }
     
 //    if ( type == 0 ){
@@ -118,11 +119,11 @@ int loadDIMACSFile(FILE *fp, SAT *sat_ptr){
 
     if ( (buf = (int *) malloc(nvars*sizeof(int))) == NULL ) {
       *sat_ptr = NULL;
-      return 0;
+      return MEMORY_ERROR;
     }
-    if ( initSAT(&sat, ncls) ) {
+    if ( initSAT(&sat, nvars, ncls) ) {
       *sat_ptr = NULL;
-      return 0;
+      return MEMORY_ERROR;
     }
     break;
   }
@@ -132,7 +133,7 @@ int loadDIMACSFile(FILE *fp, SAT *sat_ptr){
       freeSAT(&sat);
       free(buf);
       *sat_ptr = NULL;
-      return 0;
+      return IO_ERROR;
     }
     
     if ( type == 1 ) {                // We need to read off the variable weight first.
@@ -164,7 +165,7 @@ int loadDIMACSFile(FILE *fp, SAT *sat_ptr){
   
   *sat_ptr = sat;
   free(buf);
-  return nvars;
+  return 0;
 }
 
 /**
@@ -191,10 +192,10 @@ void freeSAT(SAT *sat_ptr){
 }
 
 // Don't look at this.
-void printSAT(FILE *fp, int nvars, SAT sat){
+void printSAT(FILE *fp, SAT sat){
   int i,j;
   
-  fprintf(fp, "p wcnf %d %d\n", nvars, sat->num_clauses);
+  fprintf(fp, "p wcnf %d %d\n", sat->num_vars, sat->num_clauses);
   for (i=0; i<sat->num_clauses; ++i) {
     fprintf(fp, "%d ",sat->clause_weight[i]);
     for (j=0; j<sat->clause_length[i]; ++j)
@@ -227,13 +228,13 @@ double getPotential(Bitstring bts, SAT sat){
 }
 
 
-int createSATDerivative(DSAT *dsat_ptr, int nvars, SAT sat){
+int createSATDerivative(DSAT *dsat_ptr, SAT sat){
   int i,j,k,l;
   int *clen;
   SAT temp;
   DSAT dsat;
   
-  if ( (clen = (int *) calloc(nvars,sizeof(int))) == NULL ) {
+  if ( (clen = (int *) calloc(sat->num_vars,sizeof(int))) == NULL ) {
     (*dsat_ptr) = NULL;
     return MEMORY_ERROR;
   }
@@ -243,8 +244,8 @@ int createSATDerivative(DSAT *dsat_ptr, int nvars, SAT sat){
     return MEMORY_ERROR;
   }
   
-  dsat->num_vars = nvars;
-  if ( (dsat->der = (SAT *) malloc(nvars*sizeof(SAT))) == NULL) {
+  dsat->num_vars = sat->num_vars;
+  if ( (dsat->der = (SAT *) malloc(sat->num_vars*sizeof(SAT))) == NULL) {
     free(clen);
     free(dsat);
     (*dsat_ptr) = NULL;
@@ -259,8 +260,8 @@ int createSATDerivative(DSAT *dsat_ptr, int nvars, SAT sat){
     }
   }
   
-  for (i=0; i<nvars; ++i){
-    initSAT(dsat->der + i, clen[i]);
+  for (i=0; i<sat->num_vars; ++i){
+    initSAT(dsat->der + i, 0, clen[i]);
     clen[i] = 0;
   }
   
