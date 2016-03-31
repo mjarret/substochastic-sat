@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include <string.h>
 #include "macros.h"
 #include "bitstring.h"
 #include "sat.h"
@@ -21,8 +22,11 @@
 extern int nbts;
 extern int arraysize;
 extern int nspecies;
+extern size_t bsize;
 
 static int popsize;
+
+static double e; // Temporary register
 
 
 void update(double a, double b, double *mean, Population P, int parity);
@@ -184,7 +188,8 @@ int main(int argc, char **argv){
 
 void update(double a, double b, double *mean, Population P, int parity){
   int i,j,k,l;
-  double p,e;
+  double p;
+  Bitstring in, out;
   int old = parity*arraysize;
   int new = (1-parity)*arraysize;
   
@@ -198,18 +203,20 @@ void update(double a, double b, double *mean, Population P, int parity){
   
   for (i=j=0; i<P->size; ++i) {   // Loop over each walker (i) and set target position (j) to zero.
     p = drand48();
+    in = P->walker[old+i];
+    out = P->walker[new+j];
     l = P->walker[old+i]->species; // This is the species where the walker will go!
     
     
     // First potential event: walker steps.
     if ( p < a ) {
-      k = randomBitFlip(P->walker[new+j], P->walker[old+i]);
-      e = P->walker[old+i]->potential + ((k>0)-(k<0))*getPotential(P->walker[new+j],P->ds->der[abs(k)-1]);
-      P->walker[new+j]->potential = e;
+      k = randomBitFlip(out, in);
+      e = in->potential + ((k>0)-(k<0))*getPotential(out,P->ds->der[abs(k)-1]);
+      out->potential = e;
       if ( e < P->min_v[l] ){
         P->min_v[l] = e;
         if ( e < P->winner->potential )
-          copyBitstring(P->winner, P->walker[new+j]);
+          copyBitstring(P->winner, out);
       }
       if ( e > P->max_v[l] ) P->max_v[l] = e;
       P->avg_v[l] += e;
@@ -219,12 +226,17 @@ void update(double a, double b, double *mean, Population P, int parity){
     }
     p -= a;
    
-    e = mean[P->walker[old+i]->species];
+    e = b*(mean[in->species] - in->potential);
     // Second potential event: walker spawns/dies.
-    if ( p < b*(e - P->walker[old+i]->potential) ) {
-      copyBitstring(P->walker[new+j], P->walker[old+i]);
-      copyBitstring(P->walker[new+j+1], P->walker[old+i]);
-      e = P->walker[old+i]->potential;
+    if ( p < e ) {
+//      copyBitstring(out, in);
+      memcpy(out->node, in->node, bsize);
+      e = out->potential = in->potential;
+      out->species = in->species;
+//      copyBitstring(P->walker[new+j+1], in);
+      out = P->walker[new+j+1];
+      memcpy(out->node, in->node, bsize);
+      out->potential = in->potential;
       if ( e < P->min_v[l] ) P->min_v[l] = e;
       if ( e > P->max_v[l] ) P->max_v[l] = e;
       P->avg_v[l] += 2*e;
@@ -233,13 +245,15 @@ void update(double a, double b, double *mean, Population P, int parity){
       continue;
       }
     
-    if ( p < b*(P->walker[old+i]->potential - e) ) { // Case of dying.
+    if ( p < -e ) { // Case of dying.
       continue;
     }
     
     // Third potential event: walker stays.
-    copyBitstring(P->walker[new+j], P->walker[old+i]);
-    e = P->walker[old+i]->potential;
+//    copyBitstring(out, in);
+    memcpy(out->node, in->node, bsize);
+    e = out->potential = in->potential;
+    out->species = in->species;
     if ( e < P->min_v[l] ) P->min_v[l] = e;
     if ( e > P->max_v[l] ) P->max_v[l] = e;
     P->avg_v[l] += e;
@@ -303,8 +317,8 @@ int parseCommand(int argc, char **argv, Population *Pptr, double *weight, double
     return MEMORY_ERROR;
   }
 
-  seed = time(0);
-  //seed = 0 // for testing
+  //seed = time(0);
+  seed = 0; // for testing
   srand48(seed);
   printf("c ------------------------------------------------------\n");
   printf("c Substochastic Monte Carlo, version 1.0                \n");

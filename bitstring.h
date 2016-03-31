@@ -13,6 +13,7 @@
 
 int nbts;      ///< The length of bitstrings (in number of bits).
 int blen;      ///< The length of bitstrings (in number of words).
+size_t bsize;
 
 
 /// The underlying type for a weighted bitstring.
@@ -39,7 +40,7 @@ void printBits(FILE *fp, Bitstring bst);                ///< Routine for printin
 int initBitstring(Bitstring *bst_ptr);                  ///< Routine for initializing a bitstring.
 void freeBitstring(Bitstring *bst_ptr);                 ///< Routine for freeing a bitstring.
 int randomBitstring(Bitstring bst);                     ///< Routine for filling with random bits.
-int copyBitstring(Bitstring bst_out, Bitstring bst_in); ///< Routine for copying a bitstring.
+void copyBitstring(Bitstring bst_out, Bitstring bst_in); ///< Routine for copying a bitstring.
 
 // Key function for use in the algorithm.
 int randomBitFlip(Bitstring bst_out, Bitstring bst_in); ///< Routine for stepping on the hypercube.

@@ -5,6 +5,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include "bitstring.h"
 
 /**
@@ -19,6 +20,7 @@ int setBitLength(int num_bits){
   
   nbts = num_bits;
   blen = (num_bits-1)/BITS_PER_WORD + 1;
+  bsize = blen*sizeof(word_t);
   return 0;
 }
 
@@ -119,20 +121,18 @@ int randomBitstring(Bitstring bst){
  * The weight is also copied.
  * @param bst_out is the location of new copy.
  * @param bst_int is the instance to be copied.
- * @return Zero.
+ * @return None.
  */
-int copyBitstring(Bitstring bst_out, Bitstring bst_in){
-  int i;
+void copyBitstring(Bitstring bst_out, Bitstring bst_in){
   
   // Copy each element of the array.
-  for (i=0; i<blen; ++i)
-    bst_out->node[i] = bst_in->node[i];
+//  for (i=0; i<blen; ++i)
+//    bst_out->node[i] = bst_in->node[i];
+  memcpy(bst_out->node, bst_in->node, bsize);
   
   // Copy the weight and species tag.
   bst_out->potential = bst_in->potential;
   bst_out->species = bst_in->species;
-  
-  return 0;
 }
 
 /**

@@ -1,6 +1,6 @@
 CC=gcc
-#CFLAGS=-O3 -fvectorize -funroll-loops
-CFLAGS=-O3 -funroll-loops -Wall
+CFLAGS=-O3 -funroll-loops -g
+#CFLAGS=-O3 -funroll-loops -Wall
 
 all : substochastic verify process
 

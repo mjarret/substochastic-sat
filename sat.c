@@ -237,18 +237,16 @@ double getPotential(Bitstring bts, SAT sat){
   int p,q,v;
   word_t r;
   
-  for (i=v=0; i<sat->num_clauses; ++i) { // Loop through the clauses; set the output to zero.
-    l = sat->clause_length[i];           // Store off the length of the i-th clause.
-    for (j=k=0; j<l; ++j) {              // Loop though the terms in the i-th clause; set truth value to false.
-      p = sat->clause[i][j];             // Store off the j-th term of the i-th clause.
-      q = abs(p);                        // This the index (1-up) of the variable in this term.
-      --q;                               // This is the index (0-up) of the varible in this term.
-      r = bts->node[q/BITS_PER_WORD];    // Get the correct word from the bitstring.
-      r >>= q%BITS_PER_WORD;             // Shift the correct variable value to the lowest bit.
-      r &= 1;                            // Zeroize the other bits.
-      k |= (p > 0) ? r : 1-r;            // If the term is positive the value is kept, otherwise it is negated.
+  for (i=v=0; i<sat->num_clauses; ++i) {   // Loop through the clauses; set the output to zero.
+    l = sat->clause_length[i];             // Store off the length of the i-th clause.
+    for (j=0, k=1; j<l; ++j) {             // Loop though the terms in the i-th clause; set truth value to false. (Note: k is really ~k)
+      p = sat->clause[i][j];               // Store off the j-th term of the i-th clause.
+      q = abs(p)-1;                        // This the index of the variable in this term.
+      r = bts->node[q/BITS_PER_WORD];      // Get the correct word from the bitstring.
+      k &= (p > 0)^(r>>(q%BITS_PER_WORD)); // If the term is positive the value is kept, otherwise it is negated. (Note: k is really ~k)
     }
-    v += (1-k)*sat->clause_weight[i];    // If the clause is _false_ then add in the weight as penalty.
+    k &= 1;
+    v += k*sat->clause_weight[i];          // If the clause is _false_ then add in the weight as penalty. (Note: k is really ~k)
   }
   
   return (double) v;
