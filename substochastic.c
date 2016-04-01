@@ -19,6 +19,8 @@
 //declaration of getline() and round().
 #define _GNU_SOURCE
 
+#define TEST 0
+
 extern int nbts;
 extern int arraysize;
 extern int nspecies;
@@ -99,6 +101,7 @@ int main(int argc, char **argv){
   double a, b, t, dt;
   Population pop;
   double min = -1.0;    //the best minimum from different trials
+  double local_min = -1.0;
   Bitstring solution;   //the corresponding bitstrings
   clock_t beg, end;     //for code timing
   double time_spent;    //for code timing
@@ -141,7 +144,13 @@ int main(int argc, char **argv){
       }
       
       dt = 0.9/(a + b*max_r);
-      //printf("%f %f %d %d (%f %f %f)\n",t,dt,pop->size,pop->psize[0],pop->max_v[0],mean[0],pop->min_v[0]);
+      
+      
+      if ( (local_min<0) || (pop->winner->potential < local_min)) {
+        local_min = pop->winner->potential;
+        printf("%f: ",t/runtime); for (i=0; i<nspecies; ++i) printf("(%4.0f, %4.1f, %4.0f) ",pop->max_v[i],mean[i],pop->min_v[i]); printf("\n");
+      }
+      
       if (t + dt > runtime)
         dt = runtime - t;
       
@@ -150,20 +159,39 @@ int main(int argc, char **argv){
       t += dt;
       parity ^= 1;
     }
-    printBits(stdout, pop->winner);
     
+#if TEST
+    printBits(stdout, pop->winner);
     if ((min<0) || (pop->winner->potential < min)) {
       min = pop->winner->potential;
       copyBitstring(solution, pop->winner);
     }
+#else
+    end = clock();
+    time_spent = (double)(end - beg)/CLOCKS_PER_SEC;
+    if ((min<0) || (pop->winner->potential < min)) {
+      min = pop->winner->potential;
+      copyBitstring(solution, pop->winner);
+      printBits(stdout, pop->winner);
+      printf("c Walltime: %f seconds\n", time_spent);
+      fflush(stdout);
+    } else {
+      if ( time_spent > 240 ) {
+        break;
+      }
+    }
+    
+#endif
   }
-  
+
+#if TEST
   printf("c Final answer: \n");
   printBits(stdout, solution);
   freeBitstring(&solution);
   end = clock();
   time_spent = (double)(end - beg)/CLOCKS_PER_SEC;
   printf("c Walltime: %f seconds\n", time_spent);
+#endif
   return 0;
 }
 
