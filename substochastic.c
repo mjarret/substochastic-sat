@@ -130,7 +130,7 @@ int main(int argc, char **argv){
       
       max_r = 0.0;
       for (i=0; i<nspecies; ++i){
-        mean[i] = pop->avg_v[i] + 2*(pop->max_v[i] - pop->min_v[i])*(popsize - pop->psize[i])/((pop->max_v[i] + pop->min_v[i])*popsize);
+        mean[i] = pop->avg_v[i] + (pop->max_v[i] - pop->min_v[i])*(popsize - pop->psize[i])/(2*popsize);
         if ( (pop->max_v[i] - mean[i]) > (mean[i] - pop->min_v[i]) ) {
           if ( (pop->max_v[i] - mean[i]) > max_r )
             max_r = pop->max_v[i] - mean[i];
@@ -141,7 +141,7 @@ int main(int argc, char **argv){
       }
       
       dt = 0.9/(a + b*max_r);
-//      printf("%f %f %d %d (%f %f %f)\n",t,dt,pop->size,pop->psize[0],pop->max_v[0],mean[0],pop->min_v[0]);
+      //printf("%f %f %d %d (%f %f %f)\n",t,dt,pop->size,pop->psize[0],pop->max_v[0],mean[0],pop->min_v[0]);
       if (t + dt > runtime)
         dt = runtime - t;
       
