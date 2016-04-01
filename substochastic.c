@@ -19,7 +19,7 @@
 //declaration of getline() and round().
 #define _GNU_SOURCE
 
-#define TEST 0
+#define TEST 1
 
 extern int nbts;
 extern int arraysize;
@@ -146,10 +146,11 @@ int main(int argc, char **argv){
       dt = 0.9/(a + b*max_r);
       
       
-      if ( (local_min<0) || (pop->winner->potential < local_min)) {
+/*      if ( (local_min<0) || (pop->winner->potential < local_min)) {
         local_min = pop->winner->potential;
         printf("%f: ",t/runtime); for (i=0; i<nspecies; ++i) printf("(%4.0f, %4.1f, %4.0f) ",pop->max_v[i],mean[i],pop->min_v[i]); printf("\n");
       }
+*/
       
       if (t + dt > runtime)
         dt = runtime - t;
@@ -184,9 +185,9 @@ int main(int argc, char **argv){
 #endif
   }
 
-#if TEST
-  printf("c Final answer: \n");
-  printBits(stdout, solution);
+#if 1
+//  printf("c Final answer: \n");
+//  printBits(stdout, solution);
   freeBitstring(&solution);
   end = clock();
   time_spent = (double)(end - beg)/CLOCKS_PER_SEC;
