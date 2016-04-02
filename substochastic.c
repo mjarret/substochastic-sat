@@ -74,19 +74,17 @@ void autoparam(double varsperclause, int vars, double *weight, double *runtime, 
   *weight = 100.0; // Changed since weight now percent -- Michael 3/30/16
   *trials = 5; //default
   if(k == 2) {
-    //These values are determined using the experimental results in
-    //summary_2sat120v.txt and summary_2sat200v.txt.
-    *weight = 10.0;
-	*trials = 10000;
-    *runtime = 6000;
+    //These values were determined by hand. Need to be verified. -- Michael 3/30/16
+    *weight = 12.0;
+	*trials = 1000;
+    *runtime = 10000;
     *starttime = 900;
   }
 
   if(k == 3) {
-      //These values are determined using the experimental results in
-      //summary_2sat120v.txt and summary_2sat200v.txt.
+	  //These values were determined by hand. Need to be verified. -- Michael 3/30/16
       *weight = 100.0;
-  	  *trials = 500;
+  	  *trials = 100;
       *runtime = 7500;
       *starttime = 1000;
     }
@@ -101,7 +99,7 @@ void autoparam(double varsperclause, int vars, double *weight, double *runtime, 
     //Just go for broke and use up all the time.
     *weight = 500;
 	//*weight = 500
-	*trials = 500000;
+	*trials = 100;
     //*runtime = 20000;
 	*runtime = 200000;
     *starttime = 0;
@@ -230,9 +228,9 @@ void update(double a, double b, double *mean, Population P, int parity){
   for (i=j=0; i<P->size; ++i) {   // Loop over each walker (i) and set target position (j) to zero.
     p = drand48();
     in = P->walker[old+i];
-    out = P->walker[new+j];
     l = P->walker[old+i]->species; // This is the species where the walker will go!
-    out->species = in->species;
+    out = P->walker[new+j];
+
     // First potential event: walker steps.
     if ( p < a ) {
       k = randomBitFlip(out, in);
