@@ -19,7 +19,7 @@
 //declaration of getline() and round().
 #define _GNU_SOURCE
 
-#define TEST 1
+#define TEST 0
 
 extern int nbts;
 extern int arraysize;
@@ -73,25 +73,41 @@ void autoparam(double varsperclause, int vars, double *weight, double *runtime, 
   //*weight = 1.0;
   *weight = 100.0; // Changed since weight now percent -- Michael 3/30/16
   *trials = 5; //default
-  *starttime = 0.0; // default -- Michael 3/30/16
   if(k == 2) {
     //These values are determined using the experimental results in
     //summary_2sat120v.txt and summary_2sat200v.txt.
-    *trials = 10;
-    *runtime = 3.2E4;
+    *weight = 10.0;
+	*trials = 10000;
+    *runtime = 6000;
+    *starttime = 900;
   }
+
   if(k == 3) {
+      //These values are determined using the experimental results in
+      //summary_2sat120v.txt and summary_2sat200v.txt.
+      *weight = 100.0;
+  	  *trials = 500;
+      *runtime = 7500;
+      *starttime = 1000;
+    }
+//  if(k == 3) {
     //These values are determined using the experimental results in
     //summary_3sat70v.txt and summary3sat110vlong.txt.
-    *trials = 5;
-    *runtime = 223.0*exp(0.07*vars);
-  }
+//    *trials = 5;
+//    *runtime = 223.0*exp(0.07*vars);
+//  }
   if(k == 4 || vars > 200) {
     //This overrides the above.
     //Just go for broke and use up all the time.
-    *trials = 5;
-    *runtime = 3E6;
+    *weight = 500;
+	//*weight = 500
+	*trials = 500000;
+    //*runtime = 20000;
+	*runtime = 200000;
+    *starttime = 0;
   }
+
+  *starttime = (double) 0.15*(*runtime); // default -- Michael 3/30/16
 }
 
 int main(int argc, char **argv){
@@ -101,7 +117,7 @@ int main(int argc, char **argv){
   double a, b, t, dt;
   Population pop;
   double min = -1.0;    //the best minimum from different trials
-  double local_min = -1.0;
+  //double local_min = -1.0;
   Bitstring solution;   //the corresponding bitstrings
   clock_t beg, end;     //for code timing
   double time_spent;    //for code timing
@@ -186,8 +202,8 @@ int main(int argc, char **argv){
   }
 
 #if 1
-//  printf("c Final answer: \n");
-//  printBits(stdout, solution);
+  // printf("c Final answer: \n");
+  // printBits(stdout, solution);
   freeBitstring(&solution);
   end = clock();
   time_spent = (double)(end - beg)/CLOCKS_PER_SEC;
@@ -210,24 +226,24 @@ void update(double a, double b, double *mean, Population P, int parity){
     P->max_v[i] = -(P->sat->num_clauses);
     P->min_v[i] = P->sat->num_clauses;
   }
-  
-  
+
   for (i=j=0; i<P->size; ++i) {   // Loop over each walker (i) and set target position (j) to zero.
     p = drand48();
     in = P->walker[old+i];
     out = P->walker[new+j];
     l = P->walker[old+i]->species; // This is the species where the walker will go!
-    
-    
+    out->species = in->species;
     // First potential event: walker steps.
     if ( p < a ) {
       k = randomBitFlip(out, in);
       e = in->potential + ((k>0)-(k<0))*getPotential(out,P->ds->der[abs(k)-1]);
       out->potential = e;
+      out->species = in->species;
       if ( e < P->min_v[l] ){
         P->min_v[l] = e;
-        if ( e < P->winner->potential )
+        if ( e < P->winner->potential ) {
           copyBitstring(P->winner, out);
+        }
       }
       if ( e > P->max_v[l] ) P->max_v[l] = e;
       P->avg_v[l] += e;
@@ -248,6 +264,7 @@ void update(double a, double b, double *mean, Population P, int parity){
       out = P->walker[new+j+1];
       memcpy(out->node, in->node, bsize);
       out->potential = in->potential;
+      out->species = in->species;
       if ( e < P->min_v[l] ) P->min_v[l] = e;
       if ( e > P->max_v[l] ) P->max_v[l] = e;
       P->avg_v[l] += 2*e;
@@ -261,7 +278,7 @@ void update(double a, double b, double *mean, Population P, int parity){
     }
     
     // Third potential event: walker stays.
-//    copyBitstring(out, in);
+    // copyBitstring(out, in);
     memcpy(out->node, in->node, bsize);
     e = out->potential = in->potential;
     out->species = in->species;
@@ -317,7 +334,7 @@ int parseCommand(int argc, char **argv, Population *Pptr, double *weight, double
     *trials = atoi(argv[6]);
     *starttime = atoi(argv[7]);
   } else {
-    popsize = 128;
+    popsize = 64;
     nspecies = 1;
   }
   
