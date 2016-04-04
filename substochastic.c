@@ -13,6 +13,7 @@
 #include "bitstring.h"
 #include "sat.h"
 #include "population.h"
+#include <libgen.h>
 
 //On machines with very old versions of glibc (e.g. the Raritan cluster)
 //we need to define gnu_source in order to avoid warnings about implicit
@@ -20,6 +21,7 @@
 #define _GNU_SOURCE
 
 #define TEST 0
+#define PARAMS 1
 
 extern int nbts;
 extern int arraysize;
@@ -136,6 +138,36 @@ int main(int argc, char **argv){
     return err;
   }
   
+#if PARAMS
+  FILE *optima = fopen("optima.dat", "r");
+  char *filename = basename(argv[1]);
+  trials = 1000000;
+  int line_num = 1;
+  int find_result = 0;
+  int hits = 0;
+  char tmp[512];
+  double opt_solution;
+
+  while(fgets(tmp, 512, optima) != NULL) {
+		if((strstr(tmp, filename)) != NULL) {
+			find_result++;
+			   /* get the first token */
+		    char *token = strtok(tmp, " ");
+
+			   /* walk through other tokens */
+			   while( token != NULL )
+			   {
+				  opt_solution = (double) atof(token);
+			      token = strtok(NULL, " ");
+			   }
+			break;
+		}
+		line_num++;
+	}
+  fclose(optima);
+  printf("c Expected optimimum: %f\n", opt_solution);
+#endif
+
   for(try = 0; try < trials; try++) {
     t = starttime;
     parity = 0;
@@ -175,6 +207,19 @@ int main(int argc, char **argv){
       parity ^= 1;
     }
     
+#if PARAMS
+    end=clock();
+    //printf("%f\n", pop->winner->potential);
+    if (pop->winner->potential == opt_solution) ++hits;
+    fflush(stdout);
+    time_spent = (double)(end - beg)/CLOCKS_PER_SEC;
+    if ( time_spent > 10.0) {
+    	printf("c Total hits: %d\n", hits);
+    	printf("c Total tries: %d\n", try);
+    	break;
+    }
+#endif
+
 #if TEST
     printBits(stdout, pop->winner);
     if ((min<0) || (pop->winner->potential < min)) {
@@ -206,6 +251,10 @@ int main(int argc, char **argv){
   end = clock();
   time_spent = (double)(end - beg)/CLOCKS_PER_SEC;
   printf("c Walltime: %f seconds\n", time_spent);
+#endif
+
+#if PARAMS
+  printf("%d \n", hits);
 #endif
   return 0;
 }
@@ -351,6 +400,7 @@ int parseCommand(int argc, char **argv, Population *Pptr, double *weight, double
   printf("c Brad Lackey, Stephen Jordan, and Michael Jarret, 2016.\n");
   printf("c ------------------------------------------------------\n");
   printf("c Input: %s\n", argv[1]);
+  printf("c Filename: %s\n", basename(argv[1]));
   printf("c Bits: %d\n", nbts);
   printf("c Clauses (after tautology removal): %d\n", pop->sat->num_clauses);
   printf("c Step weight: %f\n", *weight);
